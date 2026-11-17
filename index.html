@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<!-- 等倍より小さく縮めない。横の上映から縦へ戻る一瞬、横の店の絵が画面からはみ出し、スマホのブラウザがページを縮めたまま
+     （0.83倍）になって、ボタンの列が床にかぶりセリフがもぐった（本人 2026-11-10「ジュークボックスから戻ると床をメニューが隠しますね」
+     「MVを見る画面に行って戻るたびに、どんどん背景が拡大して」）。はみ出し自体も #scene の max-width で止める -->
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, viewport-fit=cover">
+<title>BGM＆VS BAR</title>
+<meta name="description" content="AI内製化工房の音楽 BAR。BGM&amp;V Studio の MV を、影絵の店のマスターが1枚ずつかけます。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="BGM＆VS BAR">
+<meta property="og:description" content="AI内製化工房の音楽 BAR。BGM&amp;V Studio の MV を、影絵の店のマスターが1枚ずつかけます。">
+<meta property="og:url" content="https://ai-naiseika.github.io/bar/">
+<meta property="og:locale" content="ja_JP">
+<link rel="icon" href="favicon.png" type="image/png" sizes="64x64">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#120d0a">
+<meta name="apple-mobile-web-app-title" content="BGM＆VS BAR">
+<meta property="og:image" content="https://ai-naiseika.github.io/bar/ogp.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  :root { --cream: #fbeccb; --ink: #0e0908; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: #0e0908; color: var(--cream); overflow: hidden;
+    font-family: "Yu Mincho", "YuMincho", "Hiragino Mincho ProN", "Noto Serif JP", serif; }
+  /* 画面の幅より広げない（横から縦へ回る一瞬、横の時の幅のままはみ出すと、スマホのブラウザがページを縮める。index.html の viewport） */
+  #scene { position: absolute; left: 50%; top: 0; transform: translateX(-50%); overflow: hidden; max-width: 100%; }
+  canvas { display: block; width: 100%; height: 100%; }
+  #spots { position: absolute; left: 0; top: 0; will-change: transform; }
+  .spot { position: absolute; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; font: inherit; }
+  .spot .tag { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); white-space: nowrap;
+    padding: .24em .75em .28em; border-radius: 3px; background: rgba(14, 9, 8, .86); font-size: clamp(13px, 1.3vw, 18px); letter-spacing: .06em; line-height: 1.32;
+    box-shadow: 0 0 0 1px rgba(251, 236, 203, .4); animation: call 2.8s ease-in-out infinite; }
+  .spot .tag b { display: block; font-weight: 600; }
+  .spot .tag small { display: block; font-size: .78em; opacity: .84; }
+  #spotShelf .tag { bottom: -46px; }
+  /* テーブルの本の札は、テーブルの下（札が本そのものに重なると、何の札か分からない） */
+  #spotBook .tag { bottom: -44px; }
+  @keyframes call { 0%, 100% { opacity: .78; } 50% { opacity: 1; } }
+  body.busy .spot .tag { opacity: 0; animation: none; }
+  /* マスターがカウンターの手前（丸イスの所）に出ている間は、カウンターの前の札を薄く（札がマスターの胴に重なった 2026-11-12） */
+  body.outside #spotShelf .tag { opacity: .12; animation: none; transition: opacity .4s; }
+  /* 案内の間は、マスターが話している場所の札だけを灯す */
+  body.busy .spot.lit .tag { opacity: 1; animation: none; box-shadow: 0 0 0 2px rgba(255, 214, 140, .95), 0 0 22px rgba(255, 190, 90, .85); }
+  #say { position: absolute; transform: translate(-50%, -50%); color: var(--ink); font-weight: 600; letter-spacing: .1em; width: max-content; text-align: center; line-height: 1.45; white-space: pre; opacity: 0; transition: opacity .5s; pointer-events: none; }
+  body.tall #say, body.flat #say { padding: .25em .9em; border-radius: 3px; background: rgba(244, 223, 180, .94); }
+  /* 横に倒したスマホ（背の低い画面。店.js の fit が body.flat と店の絵の倍率 --s を置く）は、札を絵の倍率に合わせて小さく、
+     1行・薄い下地に（本人 2026-11-17「各種メニュー欄も画像を隠しすぎるので、もう少し小さくしたり、透過したり」）。押せる所は札の箱でなく
+     絵の上のボタンそのもの（大きさは変えない） */
+  body.flat .spot .tag { bottom: calc(14px * var(--s)); padding: .14em .6em .18em; font-size: max(11px, calc(28px * var(--s))); letter-spacing: .04em;
+    background: rgba(14, 9, 8, .55); box-shadow: 0 0 0 1px rgba(251, 236, 203, .3); }
+  body.flat .spot .tag small { display: none; }
+  body.flat #spotShelf .tag, body.flat #spotBook .tag { bottom: calc(-60px * var(--s)); }
+  /* メニューの札は、右下の隅の工房へのクレジット（公開の店）にかからない高さへ */
+  body.flat #spotMenu .tag { bottom: calc(40px * var(--s)); }
+  /* 縦の画面は、下の端をそろえて上へ伸ばす（店.js の fit） */
+  #say.low { transform: translateX(-50%); }
+  /* 見えている画面の下の端に固定する（ページの箱の下にそろえると、Android の Chrome でアドレスバーが引っこんだ時に、列が浮いて
+     セリフが裏にもぐった 本人 2026-11-10「スマホ縦向きの時に４つのメニューの下にメッセージが隠れますね」） */
+  #panel { position: fixed; left: 0; right: 0; bottom: 0; display: none; flex-direction: column; gap: 10px; padding: 12px 16px calc(14px + env(safe-area-inset-bottom)); }
+  /* 縦の画面は2つずつ2段に（縦に4つ積むと背が高く、短い画面で店の絵の下の端とセリフがボタンの裏にもぐった
+     本人 2026-11-10「スマホ縦向きだと今もセリフが各種メニューに隠れますね」） */
+  body.tall #panel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 10px 12px calc(12px + env(safe-area-inset-bottom)); }
+  /* 2つ並べても言葉の途中で折れないよう、折れるのは言葉の切れ目（wbr）だけ（幅360で「声をかけ／る」と折れた）。
+     スマホの文字サイズを大きくしていても、列からはみ出さない */
+  body.tall #panel button { min-height: 52px; padding: 4px 4px; font-size: clamp(13px, 3.9vw, 15px); letter-spacing: 0; line-height: 1.3; word-break: keep-all; }
+  body.tall #panel button small { font-size: clamp(11px, 3.1vw, 12px); }
+  body.tall .spot .tag { display: none; }
+  /* 縦の画面で、マスターが本をすすめてテーブルへ寄せている間は、テーブルの本の札を案内と同じ光で灯す（縦の画面は札を出さないので、
+     本が押せると分からなかった 2026-11-17。店.js の beckonBook）。札は1行で、本のすぐ下（テーブルの前の縁）に。テーブルの下に置くと
+     すすめたセリフの札に、上に置くとジュークボックスの押せる所に重なった */
+  body.tall #spotBook.beckon .tag { display: block; top: 68%; bottom: auto; opacity: 1; animation: none;
+    box-shadow: 0 0 0 2px rgba(255, 214, 140, .95), 0 0 22px rgba(255, 190, 90, .85); }
+  body.tall #spotBook.beckon .tag small { display: none; }
+  #panel button { min-height: 56px; border: 1px solid rgba(251, 236, 203, .35); border-radius: 4px; background: #241412; color: var(--cream); font: inherit; font-size: 17px; letter-spacing: .05em; }
+  #panel button small { display: block; font-size: 13px; opacity: .78; }
+  #panel button.main { background: #6d2a24; }
+  body.busy #panel button { opacity: .55; }
+  body.busy #panel button.lit { opacity: 1; box-shadow: 0 0 0 2px rgba(255, 214, 140, .95), 0 0 18px rgba(255, 190, 90, .8); }
+  #shelf { position: fixed; inset: 0; background: rgba(14, 9, 8, .94); overflow-y: auto; padding: 20px 16px 28px; }
+  #shelf[hidden], #player[hidden], #menu[hidden] { display: none; }
+  #menu { position: fixed; inset: 0; background: rgba(14, 9, 8, .9); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 16px; }
+  #menu h2 { margin: 0 0 16px; font-weight: 500; font-size: 20px; letter-spacing: .1em; }
+  #menu .drinks { display: grid; grid-template-columns: repeat(2, minmax(140px, 220px)); gap: 12px; }
+  #menu .drinks button { min-height: 64px; padding: 8px 12px; border: 1px solid rgba(251, 236, 203, .35); border-radius: 4px; background: #241412; color: inherit; font: inherit; font-size: 17px; letter-spacing: .05em; cursor: pointer; }
+  #menu .drinks button small { display: block; font-size: 13px; opacity: .78; }
+  #menuBack { margin-top: 18px; min-height: 48px; padding: 0 28px; border: 1px solid rgba(251, 236, 203, .4); border-radius: 4px; background: none; color: inherit; font: inherit; font-size: 16px; }
+  #shelf h2 { margin: 4px 0 16px; text-align: center; font-weight: 500; font-size: 20px; letter-spacing: .1em; }
+  .jackets { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; max-width: 980px; margin: 0 auto; }
+  .jacket { display: flex; flex-direction: column; justify-content: flex-start; background: #241412; border: 0; border-radius: 3px; padding: 0 0 10px; color: inherit; font: inherit; cursor: pointer; overflow: hidden; text-align: center; }
+  .jacket img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; background: #3a2320; }
+  .jacket .no { display: block; margin-top: 8px; font-size: 17px; letter-spacing: .08em; }
+  .jacket .ti { display: block; font-size: 13px; opacity: .85; padding: 0 6px; }
+  #shelfBack { display: block; margin: 20px auto 0; min-height: 48px; padding: 0 28px; border: 1px solid rgba(251, 236, 203, .4); border-radius: 4px; background: none; color: inherit; font: inherit; font-size: 16px; }
+  #player { position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; }
+  #player video { flex: 1; min-height: 0; width: 100%; background: #000; object-fit: contain; }
+  /* 全編は YouTube の埋め込み（#yt は YouTube の部品が iframe に置きかえる）。流せない時は #ytNote と「YouTube で開く」 */
+  #ytBox { flex: 1; min-height: 0; display: flex; background: #000; }
+  #ytBox iframe { flex: 1; width: 100%; height: 100%; border: 0; }
+  #ytNote { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; text-align: center; font-size: 16px; line-height: 1.8; }
+  #player [hidden] { display: none !important; }
+  #playerYT { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border: 1px solid rgba(251, 236, 203, .4); border-radius: 4px; color: inherit; font-size: 15px; text-decoration: none; }
+  #playerBar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 14px calc(8px + env(safe-area-inset-bottom)); background: #0e0908; }
+  #playerTitle { flex: 1 1 200px; font-size: 15px; letter-spacing: .04em; }
+  #playerTitle span { white-space: nowrap; }
+  #playerBar button { min-height: 44px; padding: 0 16px; border: 1px solid rgba(251, 236, 203, .4); border-radius: 4px; background: none; color: inherit; font: inherit; font-size: 15px; }
+  #playerNext[hidden] { display: none; }
+  /* スマホを横に倒した上映中は、映像を画面いっぱいに（iPhone はページから全画面にできないので、これが大きく見る道）。
+     操作は右上に小さく重ねる（YouTube の題は左上・再生の操作は下に出る） */
+  @media (orientation: landscape) and (max-height: 520px) and (pointer: coarse) {
+    #playerBar { position: absolute; top: 0; right: 0; flex-wrap: nowrap; gap: 6px; padding: 6px 8px calc(6px + env(safe-area-inset-top)); background: rgba(0, 0, 0, .55); border-bottom-left-radius: 8px; }
+    #playerTitle, #playerYT { display: none !important; }
+    #playerBar button { min-height: 36px; padding: 0 10px; font-size: 13px; }
+  }
+  #turnHint { left: 50%; top: 42%; }
+  #white { position: fixed; inset: 0; background: #fffdf6; opacity: 0; pointer-events: none; transition: opacity .7s ease; }
+  /* BGM の入り切り（右上の小さな丸）。棚・メニュー・上映の幕より先に置くので、幕の下に隠れる */
+  #bgmBtn { position: fixed; top: calc(10px + env(safe-area-inset-top)); right: 10px; width: 44px; height: 44px; padding: 0; border-radius: 50%; border: 1px solid rgba(251, 236, 203, .45); background: rgba(14, 9, 8, .72); color: var(--cream); font: inherit; font-size: 20px; line-height: 1; cursor: pointer; }
+  #bgmBtn.off { opacity: .55; }
+  #bgmBtn.off::after { content: ''; position: absolute; left: 9px; right: 9px; top: 50%; height: 2px; background: currentColor; transform: rotate(-45deg); }
+  /* 工房へ戻る小さなクレジット（店の設定の credit がある店だけ。言葉.js が置く）。字は小さく控えめに、押せる所は指で押せる高さ。
+     店先：広い画面は右下の隅／縦のスマホは絵の左下の端（扉より下・看板の取っ手より左。狭い画面は2行に）／横のスマホは黒板の最後。
+     店の中：広い画面は右下の隅／縦の画面はボタンの列の下（列の下の余白を広げる。店.js の fit が、その上に店の絵とセリフを収める）。
+     棚・メニュー・上映の幕より先に置くので、幕の下に隠れる */
+  .kobo-credit { display: inline-flex; align-items: center; justify-content: center; min-height: 32px; padding: 0 8px; border-radius: 4px;
+    background: rgba(14, 9, 8, .62); color: rgba(251, 236, 203, .78); font-size: 11.5px; letter-spacing: .04em; line-height: 1.25;
+    white-space: nowrap; text-decoration: none; text-shadow: none; }
+  .kobo-credit:hover, .kobo-credit:focus-visible { color: var(--cream); }
+  #frontCredit { position: fixed; right: 10px; bottom: calc(8px + env(safe-area-inset-bottom)); }
+  #front.card #frontCredit { position: absolute; right: auto; left: -13px; bottom: calc(100% + 10px); max-width: calc(50vw - 33px); padding: 0 6px;
+    font-size: 10.5px; letter-spacing: 0; white-space: normal; word-break: keep-all; text-align: left; }
+  #front.card.side #frontCredit { position: static; align-self: center; flex: none; max-width: none; margin-top: 10px; white-space: nowrap; }
+  #shopCredit { position: fixed; right: 10px; bottom: calc(6px + env(safe-area-inset-bottom)); }
+  body.tall #shopCredit { right: auto; left: 50%; bottom: calc(2px + env(safe-area-inset-bottom)); transform: translateX(-50%); }
+  body.tall.credit #panel { padding-bottom: calc(42px + env(safe-area-inset-bottom)); }
+  /* 店先（店に入る前の画面。店先.js）。店のどの部品よりも上 */
+  #front { position: fixed; inset: 0; z-index: 50; background: #141a33; overflow-x: hidden; overflow-y: auto; transition: opacity .8s ease; }
+  #front[hidden] { display: none; }
+  #front.gone { opacity: 0; pointer-events: none; }
+  #frontC { position: absolute; left: 0; top: 0; display: block; }
+  #frontDoor { position: absolute; background: none; border: 0; padding: 0; cursor: pointer; color: var(--cream); font: inherit; }
+  #frontDoor .tag { position: absolute; left: 50%; bottom: 14%; transform: translateX(-50%); white-space: nowrap; padding: .24em .75em .28em; border-radius: 3px;
+    background: rgba(14, 9, 8, .86); font-size: clamp(13px, 1.3vw, 18px); letter-spacing: .06em; line-height: 1.32; box-shadow: 0 0 0 1px rgba(251, 236, 203, .5); animation: call 2.8s ease-in-out infinite; }
+  #frontDoor .tag b { display: block; font-weight: 600; }
+  #frontDoor .tag small { display: block; font-size: .78em; opacity: .84; }
+  /* 説明書き：絵の立て看板の上に、チョークの字で。行は「かたまり」の間でだけ折れる */
+  #frontBoard { position: absolute; margin: 0; color: #f1ead6; letter-spacing: .04em; line-height: 1.5; overflow: hidden; text-shadow: 0 0 1px rgba(255, 255, 255, .35); }
+  #frontBoard .head { margin: 0 0 .55em; font-size: 1.14em; color: #ffdfa0; }
+  #frontBoard ol { margin: 0; padding: 0; list-style: none; }
+  #frontBoard li { display: flex; margin-top: .5em; }
+  #frontBoard li b { flex: none; font-weight: 400; }
+  #frontBoard .head span, #frontBoard .t span { white-space: nowrap; }
+  #frontEnter { display: none; }
+  #front.entering #frontDoor .tag { opacity: 0; animation: none; transition: opacity .4s; }
+  /* 扉の中へ寄る間は、説明書きを消し、絵の外（スマホの黒板の所）も扉の向こうの光の色に */
+  #front.zooming { animation: toLight 1.1s ease-in forwards; }
+  /* 紺から光へ、灰色を通らず、灯りの琥珀を通って */
+  @keyframes toLight { 0% { background: #141a33; } 45% { background: #5e3d22; } 75% { background: #e9ae5e; } 100% { background: #ffeec8; } }
+  #front.zooming #frontBoard { opacity: 0; transition: opacity .5s; }
+  /* 扉の向こうの光の中で、店の絵が届くのを待つ間（くるくるは CSS だけで回す） */
+  #frontWait { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 14px;
+    color: #5a3a1e; font-size: 17px; letter-spacing: .1em; white-space: nowrap; pointer-events: none; }
+  #frontWait[hidden] { display: none; }
+  #frontWait .spin { width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(90, 58, 30, .2); border-top-color: #8a5a2c; animation: spin 1s linear infinite; }
+  #frontWait i { display: block; width: 180px; height: 4px; border-radius: 2px; background: rgba(90, 58, 30, .18); overflow: hidden; }
+  #frontWait b { display: block; width: 0; height: 100%; background: #8a5a2c; transition: width .3s; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  /* 看板の字が小さくなる画面（スマホ）：絵には看板を描かず、絵の下（横向きは右）の黒板を、店の前に立つ A 型の看板に。
+     絵の切り絵に合わせて、黒い板に白い切り込みの線（取っ手と脚も線で。取っ手の分 26px と脚の分 30px は 店先.js の TOP・LEGS と同じ。
+     看板は絵にかぶせない） */
+  #front.card { background: #120b08; }
+  /* 縦は、店の絵を大きく残すよう、字のまわりを詰める（字は15px・行の間とボタンを詰める） */
+  #front.card #frontBoard { left: 12px; right: 12px; overflow: visible; padding: 13px 15px 12px; background: #17130f; border: 7px solid #0d0907; border-radius: 3px;
+    box-shadow: 0 0 0 2px rgba(246, 230, 200, .82), inset 0 0 0 2px rgba(246, 230, 200, .55), 0 10px 18px rgba(0, 0, 0, .55); font-size: 15px; line-height: 1.45; }
+  #front.card #frontBoard .head { margin-bottom: .4em; }
+  #front.card #frontBoard li { margin-top: .35em; }
+  #front.card #frontBoard::before { content: ''; position: absolute; left: 50%; top: -24px; width: 40px; height: 14px; margin-left: -23px;
+    border: 3px solid rgba(246, 230, 200, .82); border-bottom: 0; border-radius: 24px 24px 0 0; }
+  #front.card #frontBoard::after { content: ''; position: absolute; left: 6%; right: 6%; bottom: -32px; height: 22px;
+    border-left: 3px solid rgba(246, 230, 200, .82); border-right: 3px solid rgba(246, 230, 200, .82); }
+  #front.card.side #frontBoard { left: auto; right: 12px; top: 12px; bottom: 12px; overflow-y: auto; display: flex; flex-direction: column; font-size: 15px; }
+  /* 収まる時はまん中に、収まらない時は頭から（まん中寄せのままだと、はみ出した頭が切れた） */
+  #front.card.side #frontBoard > :first-child { margin-top: auto; }
+  #front.card.side #frontBoard > :last-child { margin-bottom: auto; }
+  #front.card.side #frontBoard::before, #front.card.side #frontBoard::after { display: none; }
+  /* 狭い画面は、絵を指でつかんで左右に。縦の動きはページに任せる */
+  #frontC, #frontDoor { touch-action: pan-y; }
+  /* 「ゆびで左右に」の知らせ（店先と、縦の画面の店の中。まだ動かしたことのない人に一度だけ。しばらくで消える） */
+  .hint { position: absolute; transform: translateX(-50%); padding: .3em 1em .35em; border-radius: 999px; background: rgba(14, 9, 8, .82);
+    box-shadow: 0 0 0 1px rgba(251, 236, 203, .4); color: var(--cream); font-size: 14px; letter-spacing: .06em; white-space: nowrap; pointer-events: none; animation: hint 7s ease forwards; }
+  .hint[hidden] { display: none; }
+  @keyframes hint { 0% { opacity: 0; } 8% { opacity: 1; } 82% { opacity: 1; } 100% { opacity: 0; } }
+  /* 店の中の知らせは、右上の♪の丸（右 10px・幅 44px）より左の帯のまん中に。収まらない幅では、言葉のかたまりの間で2行に
+     （画面のまん中に1行で置くと、390 の幅で♪に 3px、360 で 18px かかった 2026-11-17） */
+  #lookHint { left: 10px; right: 62px; top: 12px; width: fit-content; margin: 0 auto; transform: none; white-space: normal; text-align: center; }
+  /* 縦の画面の店の中は、絵をつかんで左右に（ブラウザの縦の動きにも取られないよう、指の動きは全部こちらで） */
+  body.tall #scene { touch-action: none; }
+  /* LINE の中で開いた時だけ：いつものブラウザ（全画面にできる）で開き直す */
+  #frontOutside { display: block; margin-top: 10px; padding: 8px 10px; border: 1px solid rgba(251, 236, 203, .45); border-radius: 4px;
+    color: var(--cream); font-size: 15px; letter-spacing: .06em; text-align: center; text-decoration: none; text-shadow: none; }
+  #frontOutside small { display: block; font-size: 12px; opacity: .8; }
+  #frontOutside[hidden] { display: none; }
+  #front.card #frontEnter { display: block; width: 100%; min-height: 48px; margin-top: 12px; border: 1px solid rgba(251, 236, 203, .45); border-radius: 4px;
+    background: #6d2a24; color: var(--cream); font: inherit; font-size: 17px; letter-spacing: .12em; cursor: pointer; flex: none; }
+  /* 言葉のかたまり（言葉.js の chunks）。かたまりの中では折らず、間（wbr）でだけ折る */
+  .w { white-space: nowrap; }
+  /* 曲の一覧（棚の次の段）。棚と同じ地の色と字。押す所は 44px より大きく */
+  /* 棚の上に重ねるので、地は透かさない（棚の見出しが透けて二重に見えた） */
+  #tracks { position: fixed; inset: 0; background: #0e0908; overflow-y: auto; padding: 20px 16px 28px; }
+  #tracks[hidden], #resume[hidden], #book[hidden] { display: none; }
+  #tracks .in { max-width: 640px; margin: 0 auto; }
+  #tracks .head { display: flex; align-items: center; gap: 14px; margin: 4px 0 16px; }
+  #tracks .head img { flex: none; width: 84px; height: 84px; border-radius: 3px; object-fit: cover; background: #3a2320; }
+  #tracks .head h2 { margin: 0; font-weight: 500; font-size: 20px; letter-spacing: .08em; line-height: 1.35; }
+  #tracks .head p { margin: 4px 0 0; font-size: 14px; line-height: 1.45; opacity: .85; }
+  #tracks .modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  #tracks .modes button { min-height: 58px; padding: 6px 8px; border: 1px solid rgba(251, 236, 203, .35); border-radius: 4px; background: #241412; color: inherit;
+    font: inherit; font-size: 16px; letter-spacing: .04em; line-height: 1.3; word-break: keep-all; cursor: pointer; }
+  #tracks .modes button.main { background: #6d2a24; }
+  #tracks .modes small { display: block; font-size: 12px; opacity: .8; }
+  #tracks .pick { margin: 18px 0 8px; font-size: 14px; line-height: 1.45; opacity: .85; }
+  #tracks ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  #tracks .track { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 6px 10px 6px 6px; border: 0; border-radius: 3px;
+    background: #241412; color: inherit; font: inherit; font-size: 15px; letter-spacing: .03em; line-height: 1.4; text-align: left; cursor: pointer; }
+  #tracks .track img { flex: none; width: 96px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 2px; background: #3a2320; }
+  #tracksBack { display: block; margin: 20px auto 0; min-height: 48px; padding: 0 28px; border: 1px solid rgba(251, 236, 203, .4); border-radius: 4px;
+    background: none; color: inherit; font: inherit; font-size: 16px; }
+  /* 続きの札（上映の途中で出た人が戻った時。画面の上の真ん中、BGM の丸と「ゆびで左右に」の知らせより下） */
+  #resume { position: fixed; left: 0; right: 0; top: calc(60px + env(safe-area-inset-top)); margin: 0 auto; width: fit-content; display: flex; gap: 8px;
+    max-width: calc(100% - 24px); padding: 6px; border-radius: 6px; background: rgba(14, 9, 8, .9);
+    box-shadow: 0 0 0 1px rgba(251, 236, 203, .45), 0 6px 18px rgba(0, 0, 0, .5); }
+  #resume button { min-height: 48px; padding: 4px 14px; border: 1px solid rgba(251, 236, 203, .35); border-radius: 4px; background: #241412;
+    color: var(--cream); font: inherit; font-size: 16px; letter-spacing: .04em; line-height: 1.3; word-break: keep-all; cursor: pointer; }
+  #resume #resumeGo { flex: 0 1 auto; min-width: 0; background: #6d2a24; }
+  #resume #resumeNo { flex: none; white-space: nowrap; }
+  #resume small { display: block; font-size: 12px; opacity: .85; }
+  /* 店の上に重ねて開く窓（同じ住所のページ。BGM は鳴り続け、♪ の丸は窓の上でも押せる） */
+  #book { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; background: #0e0908; }
+  #bookBar { flex: none; display: flex; align-items: center; min-height: 56px; padding: calc(6px + env(safe-area-inset-top)) 64px 6px 10px; }
+  #bookClose { min-height: 44px; padding: 0 16px; border: 1px solid rgba(251, 236, 203, .4); border-radius: 4px; background: none; color: inherit; font: inherit; font-size: 15px; cursor: pointer; }
+  #book iframe { flex: 1; min-height: 0; width: 100%; border: 0; background: #0e0908; }
+  body.book #bgmBtn { z-index: 21; }
+  /* テーブルの本の一覧（店の設定の books。店.js が作る）。棚・メニューと同じ地の色と字、押す所は 44px より大きく。
+     表紙の小さな絵は、テーブルに描いた本と同じ色（--c） */
+  #books { position: fixed; inset: 0; background: rgba(14, 9, 8, .92); overflow-y: auto; display: flex; flex-direction: column; align-items: center;
+    padding: 20px 16px 28px; }
+  #books[hidden] { display: none; }
+  #books h2 { margin: auto 0 16px; text-align: center; font-weight: 500; font-size: 20px; letter-spacing: .1em; }
+  #books .list { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 420px; }
+  #books .list button { display: flex; align-items: center; gap: 14px; min-height: 64px; padding: 8px 14px 8px 12px; border: 1px solid rgba(251, 236, 203, .35);
+    border-radius: 4px; background: #241412; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  #books .list b { display: block; font-size: 17px; font-weight: 500; letter-spacing: .05em; line-height: 1.35; }
+  #books .list small { display: block; margin-top: 2px; font-size: 13px; letter-spacing: .03em; line-height: 1.4; opacity: .8; }
+  /* 表紙の小さな絵は、幅 44px の枠の真ん中に（形で幅が違っても、題の字の頭をそろえる） */
+  #books .cover { position: relative; flex: none; width: 34px; height: 44px; margin: 0 5px; border-radius: 2px; background: var(--c);
+    box-shadow: inset 0 0 0 4px #0e0908, 0 0 0 1px rgba(244, 223, 180, .55); }
+  #books .cover.album { width: 44px; height: 36px; margin: 0; }
+  #books .cover.album::after { content: ''; position: absolute; left: 32%; right: 32%; top: 34%; bottom: 30%; background: rgba(244, 223, 180, .85); box-shadow: 0 0 0 2px #0e0908; }
+  #booksBack { margin: 20px 0 auto; min-height: 48px; padding: 0 28px; border: 1px solid rgba(251, 236, 203, .4); border-radius: 4px; background: none; color: inherit;
+    font: inherit; font-size: 16px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div id="scene">
+  <canvas id="c"></canvas>
+  <div id="spots">
+    <button class="spot" id="spotJuke"><span class="tag"><b></b><small></small></span></button>
+    <button class="spot" id="spotShelf"><span class="tag"><b></b><small></small></span></button>
+    <button class="spot" id="spotStage"><span class="tag"><b></b><small></small></span></button>
+    <button class="spot" id="spotMenu"><span class="tag"><b></b><small></small></span></button>
+  </div>
+  <div id="say"></div>
+  <div id="lookHint" class="hint" hidden><span class="w">‹ ゆびで左右に</span> <span class="w">店の中を見わたせます ›</span></div>
+</div>
+<button id="bgmBtn" aria-label="BGM を止める">♪</button>
+<div id="panel">
+  <button class="main" data-go="juke"></button>
+  <button data-go="shelf"></button>
+  <button data-go="stage"></button>
+  <button data-go="menu"></button>
+</div>
+<div id="resume" hidden><button id="resumeGo"></button><button id="resumeNo"></button></div>
+<div id="menu" hidden>
+  <h2></h2>
+  <div class="drinks">
+    <button data-drink="coffee"></button>
+    <button data-drink="wine"></button>
+    <button data-drink="soda"></button>
+    <button data-drink="cocktail"></button>
+  </div>
+  <button id="menuBack">店にもどる</button>
+</div>
+<div id="shelf" hidden>
+  <h2></h2>
+  <div class="jackets"></div>
+  <button id="shelfBack">店にもどる</button>
+</div>
+<!-- 曲の一覧（棚の次の段。曲が2本以上のアルバムを選んだ時。言葉は店の設定から） -->
+<div id="tracks" hidden>
+  <div class="in">
+    <div class="head"><img alt=""><div><h2></h2><p></p></div></div>
+    <div class="modes"><button class="main" data-mode="medley"></button><button data-mode="omakase"></button></div>
+    <p class="pick"></p>
+    <ol></ol>
+    <button id="tracksBack"></button>
+  </div>
+</div>
+<!-- 店の上に重ねて開く窓（店の設定の book を使う店だけ。店.js の openBook） -->
+<div id="book" hidden>
+  <div id="bookBar"><button id="bookClose">‹ 店にもどる</button></div>
+  <iframe title=""></iframe>
+</div>
+<div id="player" hidden>
+  <video playsinline webkit-playsinline muted preload="none"></video>
+  <div id="ytBox" hidden><div id="yt"></div></div>
+  <div id="ytNote" hidden>ここでは流せませんでした。<br>下の「YouTube で開く」から、ご覧いただけます。</div>
+  <div id="playerBar">
+    <div id="playerTitle"></div>
+    <a id="playerYT" target="_blank" rel="noopener" hidden>YouTube で開く</a>
+    <button id="playerFull" hidden>全画面</button>
+    <button id="playerNext"></button>
+    <button id="playerClose">店にもどる</button>
+  </div>
+  <div id="turnHint" class="hint" hidden>スマホを横に倒すと、大きく見られます</div>
+</div>
+<div id="white"></div>
+<div id="front">
+  <canvas id="frontC"></canvas>
+  <button id="frontDoor" aria-label="扉をあけて、店に入る"><span class="tag"><b>扉をあける</b><small>店に入る</small></span></button>
+  <div id="frontBoard">
+    <p class="head"></p>
+    <ol></ol>
+    <button id="frontEnter">扉をあけて、店に入る</button>
+    <a id="frontOutside" hidden>いつものブラウザで開く<small>LINE の中では全画面になりません</small></a>
+  </div>
+  <div id="frontHint" class="hint" hidden>‹ ゆびで左右に 見わたせます ›</div>
+  <div id="frontWait" hidden><span class="spin"></span>店の灯りを ともしています…<i><b></b></i></div>
+</div>
+<script src="設定.js"></script>
+<script src="言葉.js"></script>
+<script src="切り出し.js"></script>
+<script src="BGM.js"></script>
+<script src="ピアノ.js"></script>
+<script src="店先の位置.js"></script>
+<script src="店先.js"></script>
+<script src="店.js"></script>
+</body>
+</html>
