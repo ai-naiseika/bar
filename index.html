@@ -67,6 +67,16 @@
      スマホの文字サイズを大きくしていても、列からはみ出さない */
   body.tall #panel button { min-height: 52px; padding: 4px 4px; font-size: clamp(13px, 3.9vw, 15px); letter-spacing: 0; line-height: 1.3; word-break: keep-all; }
   body.tall #panel button small { font-size: clamp(11px, 3.1vw, 12px); }
+  /* テーブルの本のある店は5つ。上に3つ・下に2つの2段のまま（3段にすると絵の下がボタンにもぐる。本人 2026-11-20
+     「テーブルの上の写真集と旅行のサイトが増えているので、選べるメニューにボタンを一つ足したい」） */
+  #panel button[hidden] { display: none; }
+  body.tall #panel.five { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  body.tall #panel.five button { grid-column: span 2; }
+  body.tall #panel.five button:nth-child(n+4) { grid-column: span 3; }
+  /* 文字を大きくしている端末で上の3つに字が収まらない時（店.js の fit が narrow を付ける）は、2つずつ・本は1段まるごと */
+  body.tall #panel.five.narrow button { grid-column: span 3; }
+  body.tall #panel.five.narrow button[data-go="books"] { grid-column: 1 / -1; }
+  #panel button.beckon { box-shadow: 0 0 0 2px rgba(255, 214, 140, .95), 0 0 18px rgba(255, 190, 90, .8); }
   body.tall .spot .tag { display: none; }
   /* 縦の画面で、マスターが本をすすめてテーブルへ寄せている間は、テーブルの本の札を案内と同じ光で灯す（縦の画面は札を出さないので、
      本が押せると分からなかった 2026-11-17。店.js の beckonBook）。札は1行で、本のすぐ下（テーブルの前の縁）に。テーブルの下に置くと
@@ -292,6 +302,7 @@
   <button data-go="shelf"></button>
   <button data-go="stage"></button>
   <button data-go="menu"></button>
+  <button data-go="books" hidden></button>
 </div>
 <div id="resume" hidden><button id="resumeGo"></button><button id="resumeNo"></button></div>
 <div id="menu" hidden>

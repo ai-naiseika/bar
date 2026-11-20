@@ -1726,17 +1726,25 @@
     if (dish.on) drawDish(c, DISH, dish.milk);
   }
 
-  // 浅い皿（p は皿の底の真ん中）。ミルクの面は減ると小さくなる
+  // 浅い皿（p は皿の底の真ん中）。ミルクの面は減ると小さくなる。
+  // 皿は淡い器の色に黒の縁取り（黒い影絵の皿は、ジュークボックスの天板の黒い縁に溶けて、ミルクの粒しか見えなかった
+  // 本人 2026-11-20「もっとしっかりお皿を台の上に置いてないと見えない」）。右の縁は p.x + 9（手で持つ所）
   function drawDish(c, p, milk) {
-    c.fillStyle = INK;
+    c.save();
+    c.fillStyle = '#c9d3d8';
+    c.strokeStyle = INK;
+    c.lineWidth = 1.3;
+    c.lineJoin = 'round';
     c.beginPath();
-    c.moveTo(p.x - 8, p.y - 3.5);
-    c.lineTo(p.x + 8, p.y - 3.5);
-    c.lineTo(p.x + 5, p.y);
-    c.lineTo(p.x - 5, p.y);
+    c.moveTo(p.x - 9, p.y - 4.5);
+    c.lineTo(p.x + 9, p.y - 4.5);
+    c.lineTo(p.x + 5.5, p.y);
+    c.lineTo(p.x - 5.5, p.y);
     c.closePath();
     c.fill();
-    if (milk > 0.02) ellipseFill(c, p.x, p.y - 3.4, 6.6 * (0.45 + 0.55 * milk), 1.4, COLOR.cream);
+    c.stroke();
+    c.restore();
+    if (milk > 0.02) ellipseFill(c, p.x, p.y - 4.4, 7.4 * (0.45 + 0.55 * milk), 1.5, COLOR.cream);
   }
 
   // 仕込みのまな板（x はまん中、y は板の底）。のせた物は k（work.kit）：残りのレモン・切った輪切りの数・包丁を置いているか
@@ -3507,12 +3515,13 @@
     log.push({ ev: 'glance', to });
   }
   // 寄せて留まっている間は、テーブルの本の札を案内と同じ光で灯す（縦の画面は札を出さないので、本が押せると分からなかった
-  // 2026-11-17。ボタンは増やさない）。戻りはじめたら・頼まれたら・指で動かしたら消す（毎コマ glance から決める）
+  // 2026-11-17。下のボタンの列の本のボタンも一緒に灯す）。戻りはじめたら・頼まれたら・指で動かしたら消す（毎コマ glance から決める）
   let beckoned = false;
   function beckonBook(on) {
     if (!bookSpot || on === beckoned) return;
     beckoned = on;
     bookSpot.classList.toggle('beckon', on);
+    $('#panel button[data-go="books"]')?.classList.toggle('beckon', on);
     log.push({ ev: 'beckon', on, t: clock });
   }
   // 寄せている間の行き先（毎コマ）。頼まれたらやめる（見る人が指で動かした時は、指の受け口がやめる）
@@ -4924,6 +4933,13 @@
     bookSpot.querySelector('small').textContent = tag[1] || '';
     bookSpot.addEventListener('click', () => (booksEl ? openBooks() : openBook()));
     $('#spots').append(bookSpot);
+    // 縦の画面の下のボタンの列にも、テーブルの本を1つ（本人 2026-11-20）
+    const bookBtn = $('#panel button[data-go="books"]');
+    if (bookBtn) {
+      bookBtn.hidden = false;
+      $('#panel').classList.add('five');
+      if (TABLE_BOOKS.aria) bookBtn.setAttribute('aria-label', TABLE_BOOKS.aria);
+    }
   }
 
   /* ---------- 続きから（成果物の基本 5「曲・動画・メドレーは、止めた所を覚えて続きから」） ----------
@@ -5011,6 +5027,13 @@
     const flat = !tall && FLAT.matches;
     document.body.classList.toggle('tall', tall);
     document.body.classList.toggle('flat', flat);
+    // 本のボタンのある列は、上に3つ・下に2つ。スマホの文字を大きくしていて上の3つに字が収まらない時だけ、2つずつ（本は1段まるごと）に
+    // （幅360・文字大きめで「マスターに」がボタンからはみ出した 2026-11-20）
+    const panel = $('#panel');
+    if (tall && panel.classList.contains('five')) {
+      panel.classList.remove('narrow');
+      if ([...panel.querySelectorAll('button')].some((b) => !b.hidden && b.scrollWidth > b.clientWidth + 1)) panel.classList.add('narrow');
+    }
     const panelH = tall ? $('#panel').offsetHeight : 0;
     fitPanelH = panelH;
     // 縦の画面の店の絵とセリフは、ボタンの列の本当の上の端までに収める（画面の高さから引いて決めると、ずれた時に裏へもぐる）
@@ -5375,6 +5398,7 @@
       if (go === 'juke') pressJuke();
       else if (go === 'stage') pressStage();
       else if (go === 'menu') openMenu();
+      else if (go === 'books') (booksEl ? openBooks() : openBook());
       else pressShelf();
     });
   }
