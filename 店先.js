@@ -243,6 +243,7 @@ window.cafeFront = (() => {
   }
 
   function draw() {
+    if (!baked || !cv.width || !cv.height) return;
     // 寄る時は、扉の中ほどを画面のまん中へ運びながら大きく（左右に動かした後でも、扉へ寄る）
     const cx = (DOOR.x0 + DOOR.x1) / 2, cy = 600;
     const z = 1 + 7 * zoom * zoom * zoom, m = smooth(zoom);
@@ -340,6 +341,9 @@ window.cafeFront = (() => {
   }
 
   function fit() {
+    // 画面の幅か高さが0のまま開いた時（隠したブラウザの画面で開く等）は並べずに待つ。大きさが付くと resize でまたここへ来る
+    // （前は倍率0で大きさ0の下絵を描こうとして落ち、店先ごと止まって扉から入れなくなった）
+    if (!innerWidth || !innerHeight) return;
     const vw = innerWidth, vh = innerHeight;
     dpr = Math.min(devicePixelRatio || 1, 2);
     // まず、絵を画面いっぱいにして看板に書く形で試す（扉と看板が真ん中に来るよう寄せる）
