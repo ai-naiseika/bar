@@ -3694,8 +3694,13 @@
       return { x: r.x + Math.cos(a) * w * 0.75, y: r.y + 5 + Math.sin(a) * 4.8 };
     };
     await reach('near', inRim(clock), 0.6);
+    // グラスを持つ手も、布に当てて回すように小さく前と上下へ動かす（縦のスマホは絵が小さく、拭く手の円だけでは画面で 7px 四方に
+    // 収まり、両手が止まって見えた 2026-11-20。試す.py の hands_move）。体の側へ寄せると、拭く腕が折れすぎる
+    const p0 = { x: M.far.x, y: M.far.y };
     work.pose = (t) => {
+      const b = (t - t0) * 1.1;
       bar.tiltF = Math.sin((t - t0) * 0.8) * 0.18;
+      Object.assign(M.far, { x: p0.x + M.f * (1 - Math.cos(b)) * 4, y: p0.y + Math.sin(b) * 3, w: 1 });
       Object.assign(M.near, inRim(t), { w: 1 });
       work.rim = rimOf();
     };
@@ -5025,7 +5030,10 @@
     panned = false;
     // 縦から横に回した時、縦の画面でカメラを動かした分のずれを札に残さない（横向きで札が左へ飛んだ 本人 2026-11-10）
     $('#spots').style.transform = tall ? `translateX(${-camX * S}px)` : '';
-    if (Math.abs(K - lastK) / K > 0.02) {
+    // 大きさが少しでも変わったら焼き直す（焼いた絵と手前の層は、焼いた時の大きさのまま貼る。2% より小さい時に焼き直さずにいて、
+    // スマホのアドレスバーやボタンの列で高さが 10px 動くだけで、ソファが二重に見え、マスターの脚が背もたれの上を通った
+    // 本人 2026-11-20「まだBARのソファの背もたれの抜けが解消してないね」。試す.py の small_resize）
+    if (K !== lastK) {
       lastK = K;
       bake();
     }
@@ -5300,9 +5308,9 @@
   }
   // 最初にどこかを押した時に始める（音のボタンは、そのボタンの働きに任せる）。店の中で止まったままなら、触った時に鳴らし直す
   // （スマホが鳴らすのを断った時。本人 2026-11-11「何処か画面を触ってもダメで」）。
-  // 工房へ出るクレジットのタップでは鳴らさない（出る操作のタップで音を始めない）
+  // 工房へ出るクレジットと、ご利用にあたってのタップでは鳴らさない（出る操作のタップで音を始めない）
   function bgmTouch(e) {
-    if (e.target.closest && e.target.closest('#bgmBtn, .kobo-credit')) return;
+    if (e.target.closest && e.target.closest('#bgmBtn, .kobo-credit, .kobo-terms, #playerTerms')) return;
     if (!bgm.started) {
       bgm.started = true;
       bgmPlay();

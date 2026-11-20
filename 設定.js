@@ -36,7 +36,7 @@ window.ALBUMS = [
   "id": "pumpkin",
   "title": "パンプキン・ポン！",
   "sub": "ハロウィンの夜のドキドキ",
-  "medley": false,
+  "medley": true,
   "tracks": [
    {
     "id": "uFx4Vcr8o8A",
@@ -50,7 +50,7 @@ window.ALBUMS = [
   "id": "rain",
   "title": "雨上がりの小径",
   "sub": "水たまりを、跳んでいたころ",
-  "medley": false,
+  "medley": true,
   "tracks": [
    {
     "id": "yi53ACtNxp8",
@@ -719,5 +719,9 @@ window.CAFE = {
  "credit": {
   "text": "制作：AI内製化工房 MITA ›",
   "href": "https://ai-naiseika.github.io/"
+ },
+ "terms": {
+  "text": "ご利用にあたって ›",
+  "href": "ご利用にあたって.html"
  }
 };

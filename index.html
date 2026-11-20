@@ -94,7 +94,8 @@
   .jacket .no { display: block; margin-top: 8px; font-size: 17px; letter-spacing: .08em; }
   .jacket .ti { display: block; font-size: 13px; opacity: .85; padding: 0 6px; }
   #shelfBack { display: block; margin: 20px auto 0; min-height: 48px; padding: 0 28px; border: 1px solid rgba(251, 236, 203, .4); border-radius: 4px; background: none; color: inherit; font: inherit; font-size: 16px; }
-  #player { position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; }
+  /* 上映の幕は、白く消える幕（#white）より上に。YouTube の決まりで、再生画面の上には何も重ねない（2026-11-19） */
+  #player { position: fixed; inset: 0; z-index: 30; background: #000; display: flex; flex-direction: column; }
   #player video { flex: 1; min-height: 0; width: 100%; background: #000; object-fit: contain; }
   /* 全編は YouTube の埋め込み（#yt は YouTube の部品が iframe に置きかえる）。流せない時は #ytNote と「YouTube で開く」 */
   #ytBox { flex: 1; min-height: 0; display: flex; background: #000; }
@@ -107,14 +108,18 @@
   #playerTitle span { white-space: nowrap; }
   #playerBar button { min-height: 44px; padding: 0 16px; border: 1px solid rgba(251, 236, 203, .4); border-radius: 4px; background: none; color: inherit; font: inherit; font-size: 15px; }
   #playerNext[hidden] { display: none; }
-  /* スマホを横に倒した上映中は、映像を画面いっぱいに（iPhone はページから全画面にできないので、これが大きく見る道）。
-     操作は右上に小さく重ねる（YouTube の題は左上・再生の操作は下に出る） */
+  /* スマホを横に倒した上映中は、映像を画面の高さいっぱいに（iPhone はページから全画面にできないので、これが大きく見る道）。
+     操作は映像の右の細い帯に縦に並べる。再生画面の上には重ねない（YouTube の決まり。前は右上に重ねていた 2026-11-19） */
   @media (orientation: landscape) and (max-height: 520px) and (pointer: coarse) {
-    #playerBar { position: absolute; top: 0; right: 0; flex-wrap: nowrap; gap: 6px; padding: 6px 8px calc(6px + env(safe-area-inset-top)); background: rgba(0, 0, 0, .55); border-bottom-left-radius: 8px; }
-    #playerTitle, #playerYT { display: none !important; }
-    #playerBar button { min-height: 36px; padding: 0 10px; font-size: 13px; }
+    #player { flex-direction: row; }
+    #player video, #ytBox, #ytNote { min-width: 0; }
+    #playerBar { flex: none; flex-direction: column; flex-wrap: nowrap; justify-content: center; align-items: stretch; gap: 8px;
+      padding: calc(8px + env(safe-area-inset-top)) calc(8px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) 8px; }
+    #playerTitle, #playerYT, #playerTerms { display: none !important; }
+    #playerBar button { min-height: 40px; padding: 0 10px; font-size: 13px; white-space: nowrap; }
   }
-  #turnHint { left: 50%; top: 42%; }
+  /* 「横に倒すと」の知らせは、操作の帯の下に置く（再生画面の上には重ねない 2026-11-19） */
+  #turnHint { position: static; transform: none; align-self: center; margin: 0 0 calc(8px + env(safe-area-inset-bottom)); }
   #white { position: fixed; inset: 0; background: #fffdf6; opacity: 0; pointer-events: none; transition: opacity .7s ease; }
   /* BGM の入り切り（右上の小さな丸）。棚・メニュー・上映の幕より先に置くので、幕の下に隠れる */
   #bgmBtn { position: fixed; top: calc(10px + env(safe-area-inset-top)); right: 10px; width: 44px; height: 44px; padding: 0; border-radius: 50%; border: 1px solid rgba(251, 236, 203, .45); background: rgba(14, 9, 8, .72); color: var(--cream); font: inherit; font-size: 20px; line-height: 1; cursor: pointer; }
@@ -124,14 +129,21 @@
      店先：広い画面は右下の隅／縦のスマホは絵の左下の端（扉より下・看板の取っ手より左。狭い画面は2行に）／横のスマホは黒板の最後。
      店の中：広い画面は右下の隅／縦の画面はボタンの列の下（列の下の余白を広げる。店.js の fit が、その上に店の絵とセリフを収める）。
      棚・メニュー・上映の幕より先に置くので、幕の下に隠れる */
-  .kobo-credit { display: inline-flex; align-items: center; justify-content: center; min-height: 32px; padding: 0 8px; border-radius: 4px;
+  .kobo-credit, .kobo-terms { display: inline-flex; align-items: center; justify-content: center; min-height: 32px; padding: 0 8px; border-radius: 4px;
     background: rgba(14, 9, 8, .62); color: rgba(251, 236, 203, .78); font-size: 11.5px; letter-spacing: .04em; line-height: 1.25;
     white-space: nowrap; text-decoration: none; text-shadow: none; }
-  .kobo-credit:hover, .kobo-credit:focus-visible { color: var(--cream); }
+  .kobo-credit:hover, .kobo-credit:focus-visible, .kobo-terms:hover, .kobo-terms:focus-visible { color: var(--cream); }
   #frontCredit { position: fixed; right: 10px; bottom: calc(8px + env(safe-area-inset-bottom)); }
   #front.card #frontCredit { position: absolute; right: auto; left: -13px; bottom: calc(100% + 10px); max-width: calc(50vw - 33px); padding: 0 6px;
     font-size: 10.5px; letter-spacing: 0; white-space: normal; word-break: keep-all; text-align: left; }
   #front.card.side #frontCredit { position: static; align-self: center; flex: none; max-width: none; margin-top: 10px; white-space: nowrap; }
+  /* ご利用にあたって（店の設定の terms がある店だけ。言葉.js が置く）。店先はクレジットと反対の隅、上映中は操作の帯の中 */
+  #frontTerms { position: fixed; left: 10px; bottom: calc(8px + env(safe-area-inset-bottom)); }
+  #front.card #frontTerms { position: absolute; left: auto; right: -13px; bottom: calc(100% + 10px); max-width: calc(50vw - 33px); padding: 0 6px;
+    font-size: 10.5px; letter-spacing: 0; white-space: normal; word-break: keep-all; text-align: right; }
+  /* 横のスマホの店先は、説明書きの列がクレジットで埋まるので、絵の左下の隅に */
+  #front.card.side #frontTerms { position: fixed; left: 10px; right: auto; bottom: calc(8px + env(safe-area-inset-bottom)); max-width: none; white-space: nowrap; }
+  #playerTerms { color: rgba(251, 236, 203, .72); font-size: 12px; letter-spacing: .04em; }
   #shopCredit { position: fixed; right: 10px; bottom: calc(6px + env(safe-area-inset-bottom)); }
   body.tall #shopCredit { right: auto; left: 50%; bottom: calc(2px + env(safe-area-inset-bottom)); transform: translateX(-50%); }
   body.tall.credit #panel { padding-bottom: calc(42px + env(safe-area-inset-bottom)); }

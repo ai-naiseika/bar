@@ -174,5 +174,28 @@ window.cafeText = (() => {
     document.body.classList.add('credit');
   }
 
+  // ご利用にあたって（店の設定の terms＝同じ束の中のページ）。店先（入る前）と、上映中の操作の帯に置く。
+  // YouTube の決まりの「規約へのリンク」と「情報の扱い」の案内（2026-11-19）。パソコンは別のタブで（店の続きを残す）、
+  // 指で触る端末は同じタブで（LINE・QR の読み取りの中から新しいタブで開くと、別のアプリへ出て戻れない）
+  const TM = CAFE.terms;
+  if (TM && TM.text && /^[^:/]+\.html$/.test(String(TM.href || ''))) {
+    const touch = matchMedia('(pointer: coarse)').matches;
+    const link = (id, cls) => {
+      const a = document.createElement('a');
+      a.id = id;
+      if (cls) a.className = cls;
+      a.href = TM.href;
+      if (!touch) {
+        a.target = '_blank';
+        a.rel = 'noopener';
+      }
+      a.textContent = TM.text;
+      return a;
+    };
+    const board = $('#frontBoard'), yt = $('#playerYT');
+    if (board) board.append(link('frontTerms', 'kobo-terms'));
+    if (yt) yt.after(link('playerTerms'));
+  }
+
   return { CAFE, fill, chunks, put, twoLine };
 })();
